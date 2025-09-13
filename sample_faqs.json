@@ -1,0 +1,44 @@
+{
+  "faqs": [
+    {
+      "question": "Làm thế nào để thêm chi tiêu mới?",
+      "answer": "Bạn có thể thêm chi tiêu mới bằng cách nhấn vào nút 'Thêm chi tiêu' trên trang chính hoặc gửi tin nhắn cho chatbot với thông tin chi tiêu."
+    },
+    {
+      "question": "Làm sao để quét hóa đơn?",
+      "answer": "Chọn chức năng 'Quét hóa đơn', tải lên ảnh hóa đơn và hệ thống sẽ tự động trích xuất thông tin."
+    },
+    {
+      "question": "Tôi có thể xem thống kê chi tiêu ở đâu?",
+      "answer": "Bạn có thể xem thống kê chi tiêu tại trang 'Thống kê' hoặc hỏi chatbot về tổng chi tiêu theo ngày/tháng."
+    },
+    {
+      "question": "Làm sao để chỉnh sửa hoặc xóa chi tiêu?",
+      "answer": "Vào mục 'Chi tiêu', chọn chi tiêu muốn chỉnh sửa hoặc xóa, sau đó thực hiện thao tác tương ứng."
+    },
+    {
+      "question": "Chatbot có thể hiểu những gì?",
+      "answer": "Chatbot có thể hiểu thông tin chi tiêu bằng tiếng Việt, ví dụ: 'Hôm nay tôi mua bánh mì 15000, cà phê 25000', và tự động lưu vào hệ thống."
+    },
+    {
+      "question": "Làm sao để xóa toàn bộ dữ liệu chi tiêu?",
+      "answer": "Hiện tại chưa có tính năng xóa toàn bộ dữ liệu. Bạn có thể xóa từng chi tiêu riêng lẻ trong mục 'Chi tiêu' hoặc liên hệ hỗ trợ."
+    },
+    {
+      "question": "How do I get started with the app?",
+      "answer": "To get started, simply download the app from the App Store or Google Play, then register for a new account. After logging in, you can connect your bank accounts or begin manually entering your expenses."
+    },
+    {
+      "question": "How can I create an account?",
+      "answer": "You can create an account using your email address and password, or log in quickly via your Google/Facebook account."
+    },
+    {
+      "question": "Is the app free to use?",
+      "answer": "The app offers a free version with basic features. Additionally, we provide a premium plan with more advanced features such as in-depth reports, personalized investment suggestions, and unlimited account connections."
+    },
+    {
+      "question": "How do I connect my bank account?",
+      "answer": "Go to \"Settings\" -> \"Bank Connections\" and follow the instructions. The app will ask you to enter your bank login information to securely link your accounts."
+    }
+  ]
+}
