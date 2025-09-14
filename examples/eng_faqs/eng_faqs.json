@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "category": "Account & Security",
+    "title": "Create an account",
+    "instruction": "To create an account, tap “Sign Up” on the welcome screen. Enter your email address and create a strong password. If you prefer a faster process, you can register instantly using your Google or Facebook account. Once done, you'll be redirected to the main dashboard."
+  },
+  {
+    "id": 2,
+    "category": "Account & Security",
+    "title": "Log in",
+    "instruction": "To log in, open the app and type in your registered email and password. If you signed up with Google or Facebook, simply tap “Continue with Google” or “Continue with Facebook” for one-tap access."
+  },
+  {
+    "id": 3,
+    "category": "Account & Security",
+    "title": "Log out",
+    "instruction": "To log out of your account, open “Settings > Account” and select “Log Out.” This is useful if you're switching devices or sharing your phone with someone else."
+  },
+  {
+    "id": 4,
+    "category": "Account & Security",
+    "title": "Recover your password",
+    "instruction": "If you forget your password, tap “Forgot Password?” on the login screen, enter your registered email, and check your inbox for a reset link. Follow the link to create a new password and regain access."
+  },
+  {
+    "id": 5,
+    "category": "Account & Security",
+    "title": "Change your password",
+    "instruction": "To update your password, go to “Settings > Security,” tap “Change Password,” enter your current password, and then choose a new one. Make sure it's unique and secure."
+  },
+  {
+    "id": 6,
+    "category": "Account & Security",
+    "title": "Set up PIN or Face ID",
+    "instruction": "For quick and secure login, enable PIN or Face ID. Go to “Settings > Security” and switch on either PIN lock or biometric login. This helps you sign in faster without typing your password each time."
+  },
+  {
+    "id": 7,
+    "category": "Account & Security",
+    "title": "Manage connected accounts",
+    "instruction": "You can connect or disconnect bank accounts anytime. Go to “Settings > Bank Accounts” to add new banks, refresh connections, or remove accounts you no longer use."
+  },
+  {
+    "id": 8,
+    "category": "Account & Security",
+    "title": "Update personal information",
+    "instruction": "To edit your details like name, phone number, or email address, open “Settings > Profile” and update the fields as needed."
+  },
+  {
+    "id": 9,
+    "category": "Account & Security",
+    "title": "Delete your account",
+    "instruction": "If you decide to stop using the app, go to “Settings > Account,” tap “Delete Account,” and confirm. Please note: this will permanently remove all your financial data."
+  },
+  {
+    "id": 10,
+    "category": "Account & Security",
+    "title": "Manage notification settings",
+    "instruction": "Stay in control of alerts by going to “Settings > Notifications.” Here, you can enable or disable reminders for spending limits, reports, or savings goals."
+  }
+]

@@ -1,13 +1,19 @@
 import os
-import json
 import logging
 import chromadb
-from typing import List, Dict, Any, Optional, Union
-from openai import AzureOpenAI
+from chromadb.config import Settings
+from typing import List, Optional, Union
 
-# Tải biến môi trường
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from core.adapters.base import RAG_Adapter
+    from core.models.data_models import RAG_DataItem
+    from core.utils.query_cache import QueryCache
+    from core.providers.embedding_providers import create_embedding_provider
+except:
+    from .core.adapters.base import RAG_Adapter
+    from .core.models.data_models import RAG_DataItem
+    from .core.utils.query_cache import QueryCache
+    from .core.providers.embedding_providers import create_embedding_provider
 
 # Cấu hình logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,73 +22,51 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DEFAULT_TOP_K = 3
 SIMILARITY_THRESHOLD = 0.4  # Ngưỡng độ tương đồng, giá trị thấp hơn = tương đồng hơn
 DEFAULT_COLLECTION_NAME = "default_collection"
-AZURE_API_VERSION = "2024-07-01-preview"
 
 class RAG_System:
     """
     Lớp quản lý hệ thống RAG (Retrieval-Augmented Generation)
     """
 
-    def __init__(self):
+    def __init__(self, endpoint: str=None, model_name : str=None, api_key: str=None, api_version: str=None, provider: str=None):
         """Khởi tạo hệ thống RAG với các thông số cấu hình cần thiết"""
-        # Chỉ giữ lại các biến thực sự cần thiết cho hoạt động
-        self._embedding_model_name = os.getenv("LLM_EMBEDDING_MODEL_NAME")
-        self._collection_name = None
+        self._endpoint = endpoint
+        self._model_name = model_name
+        self._api_key = api_key
+        self._collection_name = DEFAULT_COLLECTION_NAME
 
         # Khởi tạo embedding client
-        self._embedding_client = AzureOpenAI(
-            azure_endpoint=os.getenv("LLM_ENDPOINT"),
-            api_key=os.getenv("LLM_EMBEDDING_API_KEY_EMBEDDING"),
-            api_version=AZURE_API_VERSION,
-        )
+        try:
+            self._embedding_client = create_embedding_provider(
+                provider=provider,
+                endpoint=endpoint,
+                model_name=model_name,
+                api_key=api_key,
+                api_version=api_version,
+            )
+        except Exception as e:
+            logging.error(f"Error initializing embedding provider: {e}")
+            self._embedding_client = None
 
         # Vector DB collection
         self._collection = None
 
+        # Khởi tạo query cache dựa trên biến môi trường
+        if bool(os.getenv("QUERY_CACHE_ENABLED") or '1'): # default is enabled
+            self._query_cache = QueryCache()
+        else:
+            self._query_cache = None
+
     def _get_embedding(self, text: str) -> List[float]:
-        """Tạo embedding từ văn bản sử dụng mô hình embedding đa ngôn ngữ."""
-        try:
-            response = self._embedding_client.embeddings.create(
-                input=text,
-                model=self._embedding_model_name
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            logging.error(f"Lỗi khi tạo embedding: {e}")
+        """Tạo embedding từ văn bản sử dụng mô hình embedding."""
+        if not self._embedding_client:
+            logging.error("Embedding client not initialized")
             return []
+        return self._embedding_client.embed(text=text)
 
     def _normalize_text(self, text: str) -> str:
         """Chuẩn hóa văn bản: chuyển thành chữ thường và loại bỏ khoảng trắng thừa."""
         return text.lower().strip()
-
-    def _load_data(self, file_path: str) -> List[Dict[str, Any]]:
-        """Tải dữ liệu từ file JSON."""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return data.get('faqs', [])
-        except Exception as e:
-            logging.error(f"Lỗi khi đọc file dữ liệu: {e}")
-            return []
-
-    def _prepare_data(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Chuẩn bị dữ liệu bao gồm chuẩn hóa và tạo trường nội dung kết hợp."""
-        prepared_data = []
-        for i, item in enumerate(items):
-            question = self._normalize_text(item['question'])
-            answer = item['answer']
-            # Tạo nội dung kết hợp để tạo context phong phú
-            combined_content = f"Câu hỏi: {question}\nTrả lời: {answer}"
-
-            prepared_data.append({
-                'id': str(i),
-                'question': question,
-                'answer': answer,
-                'combined': combined_content,
-                # Thêm metadata để phân loại và lọc
-                'metadata': {}
-            })
-        return prepared_data
 
     def _check_collection_exists(self, chroma_client: Union[chromadb.Client, chromadb.PersistentClient], collection_name: str) -> bool:
         """Kiểm tra xem collection đã tồn tại và có dữ liệu chưa.
@@ -116,27 +100,24 @@ class RAG_System:
             logging.info(f"Không tìm thấy collection {collection_name}: {e}")
             return False
 
-    def _add_data_to_vector_db(self, prepared_data: List[Dict[str, Any]]) -> None:
+    def _add_data_to_vector_db(self, prepared_data: List[RAG_DataItem]) -> None:
         """Thêm dữ liệu vào cơ sở dữ liệu vector."""
         if self._collection is None:
             logging.error("Vector DB chưa được khởi tạo")
             raise ValueError("Vector DB chưa được khởi tạo. Hãy tạo collection trước.")
 
         try:
-            # Chuẩn bị dữ liệu cho việc thêm vào collection
-            ids = [item['id'] for item in prepared_data]
-            documents = [item['combined'] for item in prepared_data]
-            metadatas = [
-                {
-                    'question': item['question'],
-                    'answer': item['answer'],}
-                for item in prepared_data
-            ]
+            # Extract data from RAG_DataItem objects
+            ids = [item.id for item in prepared_data]
+            documents = [item.content for item in prepared_data]
+            metadatas = [item.metadata for item in prepared_data]
 
             # Tạo embeddings cho tất cả documents
             embeddings = []
             for doc in documents:
                 embedding = self._get_embedding(doc)
+                if not embedding:
+                    raise ValueError(f"Failed to create embedding for document: {doc[:50]}...")
                 embeddings.append(embedding)
 
             # Thêm dữ liệu vào collection
@@ -152,133 +133,133 @@ class RAG_System:
             logging.error(f"Lỗi khi thêm dữ liệu vào vector DB: {e}")
             raise
 
-    def query(self, query_text: str, top_k: int = DEFAULT_TOP_K, similarity_threshold: float = SIMILARITY_THRESHOLD) -> List[Dict[str, Any]]:
+    def query(self, query_text: str, top_k: int = DEFAULT_TOP_K, similarity_threshold: float = SIMILARITY_THRESHOLD) -> List[RAG_DataItem]:
         """Truy vấn dữ liệu dựa trên câu hỏi của người dùng.
 
         Args:
             query_text: Câu hỏi của người dùng
-            top_k: Số lượng kết quả trả về
-            similarity_threshold: Ngưỡng độ tương đồng cho lọc kết quả.
-                Nếu khác None, chỉ trả về best match nếu thỏa mãn ngưỡng, ngược lại trả về list rỗng.
+            top_k: Số lượng kết quả trả về tối đa
+            similarity_threshold: Ngưỡng độ tương đồng cho lọc kết quả
 
         Returns:
-            List[Dict[str, Any]]: Danh sách các kết quả phù hợp nhất
-
-        Raises:
-            ValueError: Nếu vector DB chưa được khởi tạo
+            List[RAG_DataItem]: Danh sách các kết quả phù hợp nhất
         """
+        # Kiểm tra và sử dụng cache nếu được bật
+        if self._query_cache:
+            query_params = {
+                "query_text": query_text,
+                "top_k": top_k,
+                "similarity_threshold": similarity_threshold,
+                "collection_name": self._collection_name,
+            }
+
+            if cache_result := self._query_cache.get(query_params):
+                logging.info(f"Trả về kết quả từ cache cho truy vấn: {query_text[:50]}...")
+                return cache_result
+        else:
+            query_params = {}
+
         if self._collection is None:
             logging.error("Vector DB chưa được khởi tạo")
-            raise ValueError("Vector DB chưa được khởi tạo. Hãy gọi setup_from_file() trước.")
+            raise ValueError("Vector DB chưa được khởi tạo. Hãy thiết lập hệ thống trước.")
 
         try:
-            # Chuẩn hóa truy vấn
+            # Chuẩn hóa và tạo embedding cho câu hỏi
             normalized_query = self._normalize_text(query_text)
-
-            # Tạo embedding cho truy vấn
             query_embedding = self._get_embedding(normalized_query)
 
-            # Đảm bảo có embedding hợp lệ
             if not query_embedding:
-                logging.error("Không thể tạo embedding cho câu truy vấn")
-                return []
+                raise ValueError("Failed to create embedding for query")
 
-            # Thực hiện truy vấn trên vector DB
+            # Truy vấn vector DB
             results = self._collection.query(
                 query_embeddings=[query_embedding],
-                n_results=top_k,
-                include=["metadatas", "documents", "distances"]
+                n_results=top_k
             )
 
-            # Xử lý kết quả
-            response_data = []
+            # Kiểm tra ngưỡng độ tương đồng nếu có yêu cầu
+            response_items = []
+
             if results and len(results['ids'][0]) > 0:
                 for i in range(len(results['ids'][0])):
-                    response_data.append({
-                        'id': results['ids'][0][i],
-                        'question': results['metadatas'][0][i]['question'],
-                        'answer': results['metadatas'][0][i]['answer'],
-                        'document': results['documents'][0][i],
-                        'distance': results['distances'][0][i],})
+                    # Nếu có ngưỡng và khoảng cách lớn hơn ngưỡng, bỏ qua
+                    if similarity_threshold is not None and results['distances'][0][i] > similarity_threshold:
+                        continue
 
-                # Lọc kết quả dựa trên ngưỡng tương đồng
-                if similarity_threshold is not None:
-                    if response_data and response_data[0]['distance'] <= similarity_threshold:
-                        # Chỉ giữ lại best match nếu đạt ngưỡng
-                        return [response_data[0]]
-                    else:
-                        # Trả về list rỗng nếu không đạt ngưỡng
-                        return []
+                    # Tạo RAG_DataItem từ kết quả
+                    item = RAG_DataItem(
+                        id=results['ids'][0][i],
+                        content=results['documents'][0][i],
+                        metadata={
+                            **results['metadatas'][0][i],
+                            'distance': results['distances'][0][i]
+                        }
+                    )
+                    response_items.append(item)
 
-            return response_data
+            # Lưu kết quả vào cache nếu được bật
+            if self._query_cache and query_params and response_items:
+                self._query_cache.set(query_params, response_items)
+
+            return response_items
         except Exception as e:
-            logging.error(f"Lỗi khi truy vấn dữ liệu: {e}")
-            return []
+            logging.error(f"Lỗi khi truy vấn: {e}")
+            raise
 
-    def setup_from_file(self, file_path: str, collection_name: str = DEFAULT_COLLECTION_NAME,
-                       persist_directory: Optional[str] = None, recreate: bool = False) -> bool:
-        """Thiết lập hệ thống RAG từ file JSON chứa dữ liệu.
+    def setup_from_adapter(self,
+                            adapter: RAG_Adapter,
+                            adapter_params: dict,
+                            collection_name: str = DEFAULT_COLLECTION_NAME,
+                            persist_directory: Optional[str] = None,
+                            recreate: bool = False) -> bool:
+        """Thiết lập hệ thống RAG với adapter dữ liệu.
 
         Args:
-            file_path: Đường dẫn đến file JSON chứa dữ liệu
-            collection_name: Tên của collection trong vector DB.
-                Mặc định là "default_collection".
-            persist_directory: Thư mục để lưu trữ vector DB.
-                Nếu None, dữ liệu sẽ được lưu trong RAM.
-            recreate: Nếu True, luôn tạo lại DB từ file.
-                Nếu False và DB đã tồn tại, sẽ bỏ qua quá trình tạo lại.
+            adapter: Adapter để xử lý riêng cho từng loại dữ liệu
+            adapter_params: Các tham số sử dụng cho adapter
+            collection_name: Tên của collection trong vector DB
+            persist_directory: Thư mục để lưu trữ vector DB
+            recreate: Nếu True, luôn tạo lại DB
 
         Returns:
             bool: True nếu thiết lập thành công
-
-        Raises:
-            ValueError: Nếu không thể tải dữ liệu từ file
-            Exception: Nếu có lỗi khác xảy ra
         """
+        if not self._embedding_client:
+            raise Exception("Embedding client is not initialized")
+
         try:
-            # Cập nhật tên collection
             self._collection_name = collection_name
 
-            # Tạo chroma client phù hợp với loại lưu trữ
+            # Khởi tạo ChromaDB client
             if persist_directory:
-                logging.info(f"Sử dụng persistent storage tại: {persist_directory}")
+                os.makedirs(persist_directory, exist_ok=True)
                 chroma_client = chromadb.PersistentClient(path=persist_directory)
+                logging.info(f"Khởi tạo ChromaDB với lưu trữ tại {persist_directory}")
             else:
-                chroma_client = chromadb.Client()
-                logging.info("Sử dụng in-memory storage")
+                chroma_client = chromadb.Client(Settings())
+                logging.info("Khởi tạo ChromaDB trong bộ nhớ")
 
             # Kiểm tra xem collection đã tồn tại và có dữ liệu chưa
-            if not recreate:
-                logging.info(f"Kiểm tra collection {collection_name} đã tồn tại chưa (recreate=False)")
-                if self._check_collection_exists(chroma_client, collection_name):
-                    # Collection đã tồn tại và có dữ liệu, không cần tạo lại
-                    logging.info(f"Collection {collection_name} đã tồn tại và có dữ liệu, không cần tạo lại")
-                    return True
-                else:
-                    logging.info(f"Collection {collection_name} không tồn tại hoặc không có dữ liệu, sẽ tạo mới")
-            else:
-                logging.info(f"recreate=True, sẽ tạo lại collection {collection_name}")
+            if self._check_collection_exists(chroma_client, collection_name) and not recreate:
+                logging.info(f"Collection {collection_name} đã tồn tại và có dữ liệu, sử dụng lại")
+                self._collection = chroma_client.get_collection(name=collection_name)
+                return True
 
-            # Đến đây, cần tạo mới hoặc tạo lại collection
-            logging.info(f"Tạo collection mới{'(recreate=True)' if recreate else ''}")
+            # Xóa collection cũ nếu cần tạo lại
+            if recreate:
+                try:
+                    chroma_client.delete_collection(name=collection_name)
+                    logging.info(f"Đã xóa collection cũ: {collection_name}")
+                except Exception as e:
+                    logging.debug(f"Collection chưa tồn tại hoặc không thể xóa: {e}")
 
-            # Tải dữ liệu từ file JSON
-            items = self._load_data(file_path)
-            logging.info(f"Đã tải {len(items)} mục từ file")
+            # Tải dữ liệu từ adapter
+            logging.info(f"Đang tải dữ liệu từ adapter {adapter.__class__.__name__}")
+            data_items = adapter.load(**adapter_params)
 
-            if not items:
-                raise ValueError(f"Không thể tải dữ liệu từ file {file_path}")
-
-            # Chuẩn bị dữ liệu
-            prepared_data = self._prepare_data(items)
-
-            # Xóa collection cũ nếu đã tồn tại
-            try:
-                chroma_client.delete_collection(name=collection_name)
-                logging.info(f"Đã xóa collection cũ: {collection_name}")
-            except Exception as e:
-                # Bỏ qua lỗi nếu collection không tồn tại
-                logging.debug(f"Collection chưa tồn tại hoặc không thể xóa: {e}")
+            if not data_items:
+                logging.warning("Không có dữ liệu nào được tải")
+                return False
 
             # Tạo collection mới
             self._collection = chroma_client.create_collection(
@@ -287,11 +268,17 @@ class RAG_System:
             )
 
             # Thêm dữ liệu vào vector DB
-            self._add_data_to_vector_db(prepared_data)
-            logging.info(f"Đã thêm {len(prepared_data)} mục vào vector DB")
+            self._add_data_to_vector_db(data_items)
 
-            logging.info("Đã thiết lập hệ thống RAG thành công")
+            logging.info(f"Đã thiết lập thành công hệ thống RAG với {len(data_items)} mục dữ liệu")
+
+            # Xóa cache nếu đang tạo lại collection hoặc đổi collection
+            if self._query_cache:
+                self._query_cache.clear()
+                logging.info("Đã xóa cache truy vấn")
+
             return True
+
         except Exception as e:
             logging.error(f"Lỗi khi thiết lập hệ thống RAG: {e}")
             raise
