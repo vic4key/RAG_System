@@ -33,11 +33,11 @@ class TestPlainTextAdapter(unittest.TestCase):
 
         # Initialize RAG system
         cls.rag_system = RAG_System(
-            endpoint=os.getenv("LLM_ENDPOINT"),
+            endpoint=os.getenv("LLM_EMBEDDING_ENDPOINT"),
             model_name=os.getenv("LLM_EMBEDDING_MODEL_NAME"),
             api_key=os.getenv("LLM_EMBEDDING_API_KEY"),
-            api_version=os.getenv("LLM_API_VERSION"),
-            provider=os.getenv("LLM_PROVIDER"),
+            api_version=os.getenv("LLM_EMBEDDING_API_VERSION"),
+            provider=os.getenv("LLM_EMBEDDING_PROVIDER"),
         )
 
         # Create adapter
