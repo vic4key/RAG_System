@@ -1,0 +1,14 @@
+1. What are the correct statements?
+CMMi are only defined the "HOW"
+
+2. Quote from VNOS Policy document What is Quality Policy?
+VNOS makes efforts to satisfy its customers based on good knowledge and try one’s best to meet their need with continuously increasing devotion and capability
+
+3. What abbreviation is FQMS?
+Fsoft's Quality Management System
+
+4. Where do you find the quality documents in QMS?
+https://github.com/vic4key
+
+5. Who is responsible for maintaining, controling and updating QDS?
+SEPG
