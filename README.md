@@ -37,28 +37,84 @@ A flexible and extensible Retrieval-Augmented Generation (RAG) system that suppo
 💻 **Installation**
 
 ```bash
-pip install -r requirements.txt
+$ cd to/your/local/repo
+$ git submodule add https://github.com/vic4key/RAG_System.git
+$ pip install -r RAG_System/requirements.txt
+$ python -m RAG_System.examples.rag.test # make sure it works
+$ cp RAG_System/.env.example .env
 ```
 
 ⚙️ **Configuration**
 
-Remember to configure `.env`. See `.env.example` for all available options.
+Remember to update the `.env` file (see `.env` for all available options)
 
 🚀 **Coding**
 
+<details>
+<summary>Click here to view more ...</summary>
+
 ```python
-from rag_system import RAG_System
+from RAG_System import RAG_System
+from RAG_System.examples.sample_faqs.sample_faqs_adapter import SampleFAQsAdapter
+
+from dotenv import load_dotenv
+load_dotenv()
+
+similarity_threshold = 0.4
+
+adapter = SampleFAQsAdapter()
 
 rag = RAG_System()
-results = rag.query("I want to ask about the refund policy")
+rag.setup_from_adapter(
+    adapter=adapter,
+    adapter_params={
+        "file_path": "sample_faqs.json",
+    },
+    collection_name="sample_faqs",
+    persist_directory=f"chroma_db/sample_faqs",
+    recreate=False,
+)
+
+questions = [
+    "Làm sao để chỉnh sửa hoặc xóa chi tiêu?",
+    "Xóa chi tiêu?",
+    "How to connect my bank account?",
+]
+
+for question in questions:
+    if result_items := rag.query(question):
+        if best_match := result_items[0]:
+            print(f"Found {len(result_items)} result items")
+            print(f"Best match:")
+            print(f"   Question: {best_match.metadata.get('question', '')}")
+            print(f"   Answer:   {best_match.metadata.get('answer', '')}")
+            print(f"   Distance: {best_match.metadata.get('distance', 1.0)} ({similarity_threshold = })")
+        print(f"\nRetrieval:\n```\n{result_items}\n```")
+        print(f"\nGeneration:")
+        for chunk in rag.generate(question, result_items, stream=True):
+            print(chunk, end="", flush=True)
+    else:
+        print(f"Not found")
+```
+</details>
+
+## 🧩 Development
+
+💻 **Installation**
+
+```bash
+$ git clone https://github.com/vic4key/RAG_System.git
+$ pip install -r RAG_System/requirements.txt
+$ python -m RAG_System.examples.rag.test
 ```
 
 📚 **Extending & Customization**
 
 - **Add a new provider:**  
-  Create a class inheriting from `BaseEmbeddingProvider` in `core/embedding_providers.py` and register it in the factory.
+  Create a new provider class inheriting from `BaseEmbeddingProvider` in `core/providers/` and register it in the factory.
+
 - **Add a new data adapter:**  
-  Create a new adapter in `core/adapters/` and register it with the system.
+  Create a new adapter class inheriting from `RAG_Adapter` in `core/adapters/` and register it in the factory.
 
 ## 🧪 Examples
 

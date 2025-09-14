@@ -2,8 +2,9 @@ import os
 import logging
 import unittest
 
-from rag_system import RAG_System
-from core.adapters.pdf_adapter import RAG_PDFAdapter
+from RAG_System import RAG_System
+from RAG_System.core.config import EmbConfig
+from RAG_System.core.adapters.pdf_adapter import RAG_PDFAdapter
 
 # Tải biến môi trường
 from dotenv import load_dotenv
@@ -29,14 +30,16 @@ class TestPDFAdapter(unittest.TestCase):
         file_name_without_ext = os.path.splitext(file_name)[0]
         persist_dir = os.path.join(os.getcwd(), f"chroma_db/{file_name_without_ext}")
 
-        # Khởi tạo RAG system
-        cls.rag_system = RAG_System(
+        emb_config = EmbConfig(
+            provider=os.getenv("LLM_EMBEDDING_PROVIDER"),
             endpoint=os.getenv("LLM_EMBEDDING_ENDPOINT"),
             model_name=os.getenv("LLM_EMBEDDING_MODEL_NAME"),
             api_key=os.getenv("LLM_EMBEDDING_API_KEY"),
             api_version=os.getenv("LLM_EMBEDDING_API_VERSION"),
-            provider=os.getenv("LLM_EMBEDDING_PROVIDER"),
         )
+
+        # Khởi tạo RAG system
+        cls.rag_system = RAG_System(emb_config=emb_config)
 
         # Tạo PDF adapter
         adapter = RAG_PDFAdapter()
