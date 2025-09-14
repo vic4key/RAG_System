@@ -116,4 +116,4 @@ def create_embedding_provider(provider: str, endpoint: str, model_name: str, api
     elif provider == "google":
         return GoogleEmbeddingProvider(api_key=api_key, endpoint=endpoint, model=model_name)
     else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {provider}")
+        raise ValueError(f"Unknown LLM_EMBEDDING_PROVIDER: {provider}")
